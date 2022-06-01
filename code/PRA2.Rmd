@@ -1,0 +1,231 @@
+---
+title: "Spaceship-Titanic"
+author: "Juan Luis González Rodríguez & Rocío González Martínez"
+date: "`r Sys.Date()`"
+
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 4
+  html_document: default
+toc-title: "Índice"
+bibliography: cites.bib
+csl: ieee.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Package names
+packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse")
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+install.packages(packages[!installed_packages])
+}
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+```
+
+# 1 Contexto
+
+## 1.1 Descripción del Dataset
+
+El dataset *Spaceship Titanic* @kaggle_2022_spaceship. Este dataset es parte de la competición homónima y tiene por objetivo crear un algoritmo para predecir qué pasajeros han desaparecido al colisionar una nave espacial denominada Titanic con una anomalía espaciotemporal. Con el conjunto de datos, se pretende predecir si el pasajero ha desaparecido o no, para enviar a un equipo a rescatarle. Para ello, se facilitan 2 ficheros (separados por entrenamiento y test), Se usará el fichero *train.csv* en uno para limpiar todos los registros y posteriormente se usará este para entrenar al modelo. Con el fichero test podremos probar el modelo (no incluye la variable objetivo).
+
+Descripción de **Train.csv**: Conjunto de datos con información de unos 8 700 pasajeros. Este consta de los campos que se especifican más abajo.
+
+| Nombre    | Tipo    | Descripción   |
+| --------- | ------- | ------------- |
+| PassengerId|chr|Identificador de cada pasajero. El formato es gggg_pp (gggg hace referencia al grupo de pasajeros y pp al número dentro del grupo). Normalmente los miembros del grupo son familia.|
+| --------- | ------- | ------------- |
+|HomePlanet|factor|Platena de origen del pasajero.|
+| --------- | ------- | ------------- |
+|CryoSleep| logical | Indica si el pasajero está en animación suspendida durante el viaje o no.|
+| --------- | ------- | ------------- |
+|Cabin|chr|Indican la cabina del pasajero. El formato es "plataforma/numero/lado". Lado será P o S|
+| --------- | ------- | ------------- |
+|Destination|factor|Indica el nombre del planeta de destino del pasajero.|
+| --------- | ------- | ------------- |
+|Age|integer|Indica la edad biológica del pasajero en años en el momento del viaje.|
+| --------- | ------- | ------------- |
+|VIP|logical|Indica si el pasajero ha pagado por un servicio VIP o no|
+| --------- | ------- | ------------- |
+|RoomService, FoodCouert, ShopingMall, Spa, VRDeck|numeric|Indica la cantidad de dinero que el pasajero ha gastado en cada uno de los servicios|
+| --------- | ------- | ------------- |
+|Name|chr|Indica el nombre y apellido del pasajero|
+| --------- | ------- | ------------- |
+|Transported|logical|Variable objetivo, indica si el pasajero ha sido transportado a otra dimensión o no (es decir si ha desaparecido).|
+
+La estructura del dataset es la siguiente:
+
+```{r}
+df <- read.csv("~/MASTER CIENCIA DE DATOS/Tipologia y ciclo de vida de los datos/Practicas/Práctica2/Ejercicio/Repositorio/data/raw_data/train.csv",
+               colClasses=c("HomePlanet"="factor",
+                            "CryoSleep"="logical",
+                            "Destination"="factor",
+                            "VIP"="logical",
+                            "Transported"="logical"))
+df$Age <- as.integer(df$Age)
+
+str(df)
+```
+
+
+## 1.2 ¿Por qué es importante y qué pregunta/problema pretende responder?
+
+El objetivo que se persigue con el proyecto es el de, partiendo del conjunto de datos anteriormente comentado, desarrollar un modelo supervisado que permita responder a la pregunta: **¿Ha desaparecido el pasajero que se indica?**
+
+Con ello, la tripulación podrá dirigir los esfuerzos de una manera más eficiente y maximizar las vidas salvadas.
+
+# 2 Integración y selección de los datos de interes.
+
+Solo hay 1 fichero de origen, por lo que no hay que combinar los datos de diferentes fuentes.
+
+Como ya se tiene a los usuarios identificados a los usuarios en base a los identificadores, no es necesario almacenar sus nombres de cara al análisis. Por otro lado, de los campos *Passenger_id* y *Cabin* se pueden extraer aún más campos como el grupo y número dentro del grupo en el primer caso y la plataforma, número de cabina y lado en el segundo.
+
+Se elimina la variable *Name* y se crean las nuevas variables derivadas.
+
+```{r}
+df <- select(df, -Name)
+```
+
+```{r}
+df <- df %>%
+  mutate(PassengerGroup=
+           as.character(sapply(strsplit(PassengerId,"_"), `[`, 1))) %>%
+  mutate(PassengerNumInGroup=
+           as.factor(sapply(strsplit(PassengerId,"_"), `[`, 2))) %>%
+  mutate(CabinPlatform = 
+           as.factor(sapply(strsplit(Cabin,"/"), `[`, 1))) %>%
+    mutate(CabinNumber = 
+           as.integer(sapply(strsplit(Cabin,"/"), `[`, 2))) %>%
+    mutate(CabinSide = 
+           as.factor(sapply(strsplit(Cabin,"/"), `[`, 3)))
+
+df <- select(df, -Cabin)
+```
+
+Tras crear las nuevas variables derivadas se elimina *Cabin* porque ya tenemos su información separada. PassengerId no se eliminará porque sirve para identificar los registros. Se muestra un resumen de los campos con la función *summary*.
+
+```{r}
+summary(df)
+```
+
+Cabe destacar que en *HomePlanet* y en *Destination* hay campos con valores vacíos que no se han considerado como NA's. Por otro lado, Hay algunos campos que presenta NA's que podrán tratarse o desestimarse. También se observan valores extremos en algunos campos.
+
+# 3 Limpieza de los Datos.
+En este apartado se tratará de mejorar la calidad de los datos presentes en base a la falta de calidad. Por límite de extensión del proyecto, nos centraremos en el tratamiento de outliers y de valores nulos.
+
+## 3.1 Tratamiento valores nulos.
+Se remapean los campos en blanco de los campos *HomePlanet* y *Destination* por el valor *Unknown*. Con esto, no perdemos información y evitamos confundir a las personas que interpreten los resultados.
+
+```{r}
+levels(df$HomePlanet) <- c("Unknown", "Earth", "Europa", "Mars")
+levels(df$Destination) <- c("Unknown", "55 Cancri e", "PSO J318.5-22", "TRAPPIST-1e")
+```
+
+Se muestran la cantidad de valores nulos que tiene cada campo.
+```{r}
+sapply(df, function(x) sum(length(which(is.na(x)))))
+```
+Son relativamente pocos registros en comparación con el total que constan en el dataset. Por lo que se decide con contar con estos registros para entrenar al modelo predictivo.
+
+```{r}
+nrow(df)
+df <- na.omit(df)
+nrow(df)
+```
+
+## 3.2 Tratamiento valores extremos.
+
+```{r}
+attach(df)
+boxplot(RoomService)
+boxplot(FoodCourt)
+boxplot(ShoppingMall)
+boxplot(Spa)
+boxplot(VRDeck)
+detach(df)
+```
+
+Aunque encontramos valores muy alejados de los valores centrales. No se consideraran como valores extremos. Se considerarán valores atípicos pero que son representativos de la variedad de nuestra muestra y por tanto formarán parte de los datos para entrenar al modelo. No se eliminará ningún valor extremo.
+
+#4 Análisis de los datos
+## 4.1
+## 4.2
+## 4.3
+Analisis crudos
+```{r}
+model <- glm(Transported ~ HomePlanet,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ CryoSleep,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ Destination,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ Age,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ VIP,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ RoomService,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ FoodCourt,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ ShoppingMall,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ Spa,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ VRDeck,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+#model <- glm(Transported ~ PassengerGroup,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+
+```{r}
+model <- glm(Transported ~ PassengerNumInGroup,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ CabinPlatform,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
+
+```{r}
+model <- glm(Transported ~ CabinSide,  data=df, family = binomial(link = 'logit'))
+summary(model)
+```
