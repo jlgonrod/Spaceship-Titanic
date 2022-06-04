@@ -17,9 +17,10 @@ csl: ieee.csl
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, message = FALSE}
 # Package names
-packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse")
+packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse",
+              "caret","ROCR", "knitr", 'nortest')
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
 if (any(installed_packages == FALSE)) {
@@ -28,6 +29,7 @@ install.packages(packages[!installed_packages])
 # Packages loading
 invisible(lapply(packages, library, character.only = TRUE))
 
+set.seed(15463)
 ```
 
 # 1 Contexto
@@ -125,7 +127,8 @@ Se remapean los campos en blanco de los campos *HomePlanet* y *Destination* por 
 
 ```{r}
 levels(df$HomePlanet) <- c("Unknown", "Earth", "Europa", "Mars")
-levels(df$Destination) <- c("Unknown", "55 Cancri e", "PSO J318.5-22", "TRAPPIST-1e")
+levels(df$Destination) <- c("Unknown", "55 Cancri e", "PSO J318.5-22",
+                            "TRAPPIST-1e")
 ```
 
 Se muestran la cantidad de valores nulos que tiene cada campo.
@@ -154,78 +157,168 @@ detach(df)
 
 Aunque encontramos valores muy alejados de los valores centrales. No se consideraran como valores extremos. Se considerarán valores atípicos pero que son representativos de la variedad de nuestra muestra y por tanto formarán parte de los datos para entrenar al modelo. No se eliminará ningún valor extremo.
 
-#4 Análisis de los datos
+# 4 Análisis de los datos
 ## 4.1
-## 4.2
+
+## 4.2 Comprobación de la normalidad y homogeneidad de la varianza
+
+Debido a la naturaleza de las variables, se deberá estudiar la normalidad y varianza para las variables numéricas. No tiene sentido estudiar si se distribuye normalmente o con que varianza lo hace una variable categórica. Es decir, se estudiará sobre las variables *Age*,*RoomService*, *FoodCourt*, *ShoppingMall*, *Spa* y *VRDeck*.
+
+A continuación se detalla el **estudio de la normalidad**. Debido a que, la cantidad de registros es superior a 5 000, se  usará el test de normalidad de *Anderson-Darling*, ya que el test de *Shapiro-Wilk* tiene como limitación un valor máx. de 5 000 registros.
+
+```{r, out.width="60%", fig.align='center'}
+par(mfrow=c(1,2))
+
+hist(df$RoomService)
+qqnorm(df$RoomService, main="Q-Q RoomService")
+qqline(df$RoomService,col=2)
+
+ad.test(df$RoomService)
+```
+Gráficamente se observa que no sigue una distribución normal. Si realizamos el test de normalidad de *Anderson-Daling* nos da un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.  
+
+```{r, out.width="60%", fig.align='center'}
+par(mfrow=c(1,2))
+
+hist(df$FoodCourt)
+qqnorm(df$FoodCourt, main="Q-Q FoodCourt")
+qqline(df$FoodCourt,col=2)
+
+ad.test(df$FoodCourt)
+```
+
+Gráficamente se observa que no sigue una distribución normal. Si realizamos el test de normalidad de *Anderson-Daling* nos da un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+
+```{r, out.width="60%", fig.align='center'}
+par(mfrow=c(1,2))
+
+hist(df$ShoppingMall)
+qqnorm(df$ShoppingMall, main="Q-Q ShoppingMall")
+qqline(df$ShoppingMall,col=2)
+
+ad.test(df$ShoppingMall)
+```
+
+Gráficamente se observa que no sigue una distribución normal. Si realizamos el test de normalidad de *Anderson-Daling* nos da un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+
+```{r, out.width="60%", fig.align='center'}
+par(mfrow=c(1,2))
+
+hist(df$Spa)
+qqnorm(df$Spa, main="Q-Q Spa")
+qqline(df$Spa,col=2)
+
+ad.test(df$Spa)
+```
+
+Gráficamente se observa que no sigue una distribución normal. Si realizamos el test de normalidad de *Anderson-Daling* nos da un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+
+```{r, out.width="60%", fig.align='center'}
+par(mfrow=c(1,2))
+
+hist(df$VRDeck)
+qqnorm(df$VRDeck, main="Q-Q VRDeck")
+qqline(df$VRDeck,col=2)
+
+ad.test(df$VRDeck)
+```
+Gráficamente se observa que no sigue una distribución normal. Si realizamos el test de normalidad de *Anderson-Daling* nos da un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+
+```{r, out.width="60%", fig.align='center'}
+
+par(mfrow=c(1,2))
+
+hist(df$Age)
+qqnorm(df$Age, main="Q-Q Age")
+qqline(df$Age,col=2)
+
+ad.test(df$Age)
+```
+
+Gráficamente se observa que no sigue del todo una distribución normal, hay más datos de los esperados en la parte izquierda de la distribución, por lo que aunque se aproxima no aporta infomación segura. Si realizamos un test formal de normalidad, como el de *Anderson-Daling*, indica un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+
 ## 4.3
-Analisis crudos
-```{r}
-model <- glm(Transported ~ HomePlanet,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
+
+# MODELO DE PRUEBA
+
+Se usará un modelo de regresivo logística que permitirá identificar a los pasajeros entre transportados o no transportados. Para ello hará uso de las variables explicativas que determinarán en la medida de lo posible si estos pasajeros toman un valor u otro.
+
+Se parten los datos en *df* para entrenar al modelo con un 70% de los casos y en *df_validation* para medir la bondad del modelo con el 30% restante.
 
 ```{r}
-model <- glm(Transported ~ CryoSleep,  data=df, family = binomial(link = 'logit'))
-summary(model)
+df_raw <- df
+
+Index <- createDataPartition(df_raw$Transported, p=0.7, list=FALSE,times=1)
+
+df <- df_raw[Index,]
+df_validation <- df_raw[-Index,]
 ```
 
+
+Aunque no se incluye en la práctica por motivos de extensión. Se han realizado análisis previos y se ha determinado que hay variables que empeoran el modelo, por lo que estas se eliminan en el entrenamiento y en la validación.
 ```{r}
-model <- glm(Transported ~ Destination,  data=df, family = binomial(link = 'logit'))
-summary(model)
+df1 <- select(df, -c(PassengerId, PassengerGroup, HomePlanet, Destination,VIP, PassengerNumInGroup, CabinPlatform, Age))
 ```
 
-```{r}
-model <- glm(Transported ~ Age,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
+Se entrena el modelo con el dataset previamente creado. Se presupone que lasvariables no son bariables de confusión y no presentan interacción entre ellas.
 
 ```{r}
-model <- glm(Transported ~ VIP,  data=df, family = binomial(link = 'logit'))
-summary(model)
+model_log <- glm(Transported ~ ., data = df1, family = binomial(link='logit'))
+summary(model_log)
 ```
 
-```{r}
-model <- glm(Transported ~ RoomService,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
+A continuación se evalúa el mismo. Para ello se predicen los valores del conjunto *df_validation* y se comparan con los valres reales del mismo.
 
 ```{r}
-model <- glm(Transported ~ FoodCourt,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
-
-```{r}
-model <- glm(Transported ~ ShoppingMall,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
-
-```{r}
-model <- glm(Transported ~ Spa,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
-
-```{r}
-model <- glm(Transported ~ VRDeck,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
-
-```{r}
-#model <- glm(Transported ~ PassengerGroup,  data=df, family = binomial(link = 'logit'))
-summary(model)
+fitted.results <- predict(model_log, 
+                          newdata = select(df_validation, c(CryoSleep,
+                                                            RoomService,
+                                                            FoodCourt,
+                                                            ShoppingMall,
+                                                            Spa,VRDeck,
+                                                            CabinNumber,
+                                                            CabinSide))
+                          ,type = "response")
 ```
 
 
 ```{r}
-model <- glm(Transported ~ PassengerNumInGroup,  data=df, family = binomial(link = 'logit'))
-summary(model)
+fitted.results_FACTOR <- ifelse(fitted.results > 0.5,TRUE,FALSE)
+
+resultado_comprobacion <- cbind("ID"=df_validation$PassengerId, 
+                                "Transported"=df_validation$Transported,
+                                "Prediction"=fitted.results_FACTOR)
+
+df_validation_info <- as.data.frame(resultado_comprobacion)
+kable(head(df_validation_info),align='c', row.names=FALSE)
+```
+
+Se convierten las variables *Transported* (valor real) y *Prediction* (valor predicho) y se mide la bondad del modelo con la matriz de confusión mediante la función *confusionMatrix).
+
+```{r}
+df_validation_info$Transported <- as.factor(df_validation_info$Transported)
+df_validation_info$Prediction <- as.factor(df_validation_info$Prediction)
+
+confusionMatrix(df_validation_info$Transported, df_validation_info$Prediction)
+```
+La clase positiva se categoriza como FALSE (no desaparecido).
+
+Se observa una buena predicción de las clases. Con una exactitud del 80,38%. La tasa de positivos que se han asignado como positivos es del 81,27%. mientras que los negativos identificado como auténticos negativos es del 79,55%. De los verdaderos.
+
+La precisión, es decir, los datos clasificados como positivos y que realmente lo son es del  78,73%.
+
+```{r, out.width="70%",  fig.align='center'}
+pr <- prediction(fitted.results, df_validation$Transported)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
 ```
 
 ```{r}
-model <- glm(Transported ~ CabinPlatform,  data=df, family = binomial(link = 'logit'))
-summary(model)
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
 ```
 
-```{r}
-model <- glm(Transported ~ CabinSide,  data=df, family = binomial(link = 'logit'))
-summary(model)
-```
+Vemos como la curva ROC nos da un valor próxima a la esquina superior derecha y un área del 0.85, muy próximo a 1.
+
+Se observa que el modelo es bueno prediciendo si los pasajeros han desaparecido o no.
