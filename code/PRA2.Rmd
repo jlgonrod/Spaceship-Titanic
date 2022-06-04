@@ -20,7 +20,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message = FALSE}
 # Package names
 packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse",
-              "caret","ROCR", "knitr", 'nortest')
+              "caret","ROCR", "knitr", 'nortest', "bestNormalize")
+
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
 if (any(installed_packages == FALSE)) {
@@ -235,17 +236,108 @@ qqline(df$Age,col=2)
 ad.test(df$Age)
 ```
 
-Gráficamente se observa que no sigue del todo una distribución normal, hay más datos de los esperados en la parte izquierda de la distribución, por lo que aunque se aproxima no aporta infomación segura. Si realizamos un test formal de normalidad, como el de *Anderson-Daling*, indica un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal.
+Gráficamente se observa que no sigue del todo una distribución normal, hay más datos de los esperados en la parte izquierda de la distribución, por lo que aunque se aproxima no aporta información segura. Si realizamos un test formal de normalidad, como el de *Anderson-Daling*, indica un p-valor < 0,05. Por lo que se rechaza la hipótesis nula que indica que los datos siguen una distribución normal. Si en los siguientes análisis se requiere que los datos sigan una distribución normales, se deberá de proceder a corregir esta.
+
+Tras comprobar la normalidad, se procede a realizar el **análisis de homocedasticidad**. Es decir, se comprueba la igualdad de varianza entre los grupos que se van a comparar. Como los datos no siguen una distribución normal no se aplica el test de *Levene*. En su defecto se usará el test de *Fligner-Killeen*. Con ello comprobaremos si la varianza entre los dos grupos (pasajeros transportados y no transportados) es la misma o no.
+
+Aplicamos a todas las variables numéricas:
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(RoomService ~Transported, data=df)
+boxplot(RoomService~Transported, data = df, 
+        main="Comprobación de homocedasticidad para RoomService", 
+        ylim=c(0,2000))
+```
+Se rechaza la hipótesis nula de homocedastitcidad. Por lo que la variable *RoomService* presenta varianzas estadísticamente diferentes para los pasajeros transportados y los no transportados. Se puede observar gráficamente como, los gráficos Boxplot apuntan a la misma conclusión. Se ha establecido en el plot un valor máx. de la variable del eje y como 2000 para observar mejor los IQR.
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(FoodCourt ~Transported, data=df)
+boxplot(FoodCourt~Transported, data = df, 
+        main="Comprobación de homocedasticidad para FoodCourt", 
+        ylim=c(0,500))
+```
+
+Se rechaza la hipótesis nula, la variable *FoodCour* presenta heterocestasicidad en los grupos definidos por *Transported*. Se puede observar gráficamente como, los gráficos Boxplot apuntan a la misma conclusión. Se ha establecido en el plot un valor máx. de la variable del eje y como 500 para observar mejor los IQR.
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(ShoppingMall ~Transported, data=df)
+boxplot(ShoppingMall~Transported, data = df, 
+        main="Comprobación de homocedasticidad para ShoppingMall",
+        ylim=c(0,300))
+```
+
+Se rechaza la hipótesis nula de homocedastitcidad. Por lo que la variable *ShoppingMall* presenta varianzas estadísticamente diferentes para los pasajeros transportados y los no transportados. Se puede observar gráficamente como, los gráficos Boxplot apuntan a la misma conclusión. Se ha establecido en el plot un valor máx. de la variable del eje y como 300 para observar mejor los IQR.
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(Spa ~Transported, data=df)
+boxplot(Spa~Transported, data = df, 
+        main="Comprobación de homocedasticidad para Spa", 
+        ylim=c(0,1500))
+```
+Se rechaza la hipótesis nula, la variable *Spa* presenta heterocestasicidad en los grupos definidos por *Transported*. Se puede observar gráficamente como, los gráficos Boxplot apuntan a la misma conclusión. Se ha establecido en el plot un valor máx. de la variable del eje y como 1500 para observar mejor los IQR.
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(VRDeck ~Transported, data=df)
+boxplot(VRDeck~Transported, data = df, 
+        main="Comprobación de homocedasticidad para VRDeck", ylim=c(0,1200))
+```
+
+Se rechaza la hipótesis nula, la variable *VRDeck* presenta heterocestasicidad en los grupos definidos por *Transported*. Se puede observar gráficamente como, los gráficos Boxplot apuntan a la misma conclusión. Se ha establecido en el plot un valor máx. de la variable del eje y como 1200 para observar mejor los IQR.
+
+```{r, out.width="50%",  fig.align='center'}
+fligner.test(Age ~ Transported, data=df)
+boxplot(Age~Transported, data = df, 
+        main="Comprobación de homocedasticidad para Age")
+```
+Aunque gráficamente parece que la varianza es homogénea para los dos grupos de la variable *Age* definidos por *Transported*, el test de *Fligner-Killeen* apunta a que no son iguales. El p-valor apportado es inferior a 0.05 por lo que se rechaza la hipótesis nula de igualdad de varianzas.
+
+Por lo que se afirma que **ninguno de los campos numéricos sigue una distribución normal, ni presentan homocedasticidad** para los dos grupos definidos por la variable *Transported*. Se observa en cuantro a la distribución normal. Que en todas las variables (salvo en *Age*) el grupo asignado como "TRUE" tiene muchos más valores en 0 (lo que indica que no han gastado nada en esos servicios) que el asignado como "FALSE."
 
 ## 4.3
 
-# MODELO DE PRUEBA
+### 4.3.2 Contraste de hipótesis.
+
+Se realizará un contraste de hipótesis en el que se estudiará si el gato total de dos submuestras, siendo una las personas con TRUE en Transported y las segundas las personas con FALSE.
+
+En primer lugar, se crea una variable denominada *amountSpent*, esta será la suma de todas las variables relacionadas con el gasto. Se hace un head para ver los valores de los primeros registros.
+
+```{r}
+df <- df %>%
+  mutate(amountSpent = RoomService+FoodCourt+ShoppingMall+Spa+VRDeck)
+kable(cbind("amountSpent"=head(df)$amountSpent), align = 'c')
+```
+
+Con esta, se plantea la pregunta de investigación:
+
+**¿Es diferente la media del total gastado de las personas transportadas **$\mu_1$ **que la media del total gastado de las personas no transportadas ** $\mu_2$ **?**
+
+La formulación del contraste de hipótesis nula y alternativa es la siguiente:
+
+$$
+H_0: \mu_1 = \mu_2
+$$
+$$
+H_1: \mu_1 \neq \mu_2
+$$
+
+Como las muestras no siguen una distribución normal se usará un test para realizar el contraste NO paramétrico de dos muestras independientes. Este test será el **test de suma de rangos de Wilcoxon**.
+
+```{r}
+amountSpenteTransported <- filter(df, Transported==TRUE)$amountSpent
+
+amountSpenteNOTransported <- filter(df, Transported==FALSE)$amountSpent
+
+wilcox.test(amountSpenteNOTransported, amountSpenteTransported)
+```
+Con un p-valor inferior al valor de significancia de 0.05, no hay evidencia suficiente para aceptar la hipótesis nula. Por lo que se puede concluir que la media de la cantidad total de dinero gastada por las personas Transportadas y las No transportadas no es estadísticamente igual.
+
+### 4.3.3 Modelo de regresión logarítmica
 
 Se usará un modelo de regresivo logística que permitirá identificar a los pasajeros entre transportados o no transportados. Para ello hará uso de las variables explicativas que determinarán en la medida de lo posible si estos pasajeros toman un valor u otro.
 
 Se parten los datos en *df* para entrenar al modelo con un 70% de los casos y en *df_validation* para medir la bondad del modelo con el 30% restante.
 
-```{r}
+```{r, warning=FALSE}
 df_raw <- df
 
 Index <- createDataPartition(df_raw$Transported, p=0.7, list=FALSE,times=1)
@@ -257,7 +349,7 @@ df_validation <- df_raw[-Index,]
 
 Aunque no se incluye en la práctica por motivos de extensión. Se han realizado análisis previos y se ha determinado que hay variables que empeoran el modelo, por lo que estas se eliminan en el entrenamiento y en la validación.
 ```{r}
-df1 <- select(df, -c(PassengerId, PassengerGroup, HomePlanet, Destination,VIP, PassengerNumInGroup, CabinPlatform, Age))
+df1 <- select(df, -c(PassengerId, PassengerGroup, HomePlanet, Destination,VIP, PassengerNumInGroup, CabinPlatform, Age, amountSpent))
 ```
 
 Se entrena el modelo con el dataset previamente creado. Se presupone que lasvariables no son bariables de confusión y no presentan interacción entre ellas.
