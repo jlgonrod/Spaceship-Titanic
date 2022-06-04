@@ -453,6 +453,55 @@ Por lo que se afirma que **ninguno de los campos numéricos sigue una distribuci
 
 ## 4.3
 
+### 4.3.1 Análisis de Correlaciones
+
+Para realizar el análisis de correlaciones, en primer lugar se creará un conjunto de datos nuevo a partir del anterior, que contenga las mismas variables pero transformadas todas a numéricas:
+
+```{R}
+df_cor <- df[,2:18]
+df_cor <- df_cor[,-12:-13]
+df_cor$HomePlanet <- unclass(df_cor$HomePlanet)
+df_cor$Destination <- unclass(df_cor$Destination)
+df_cor$VIP <- unclass(df_cor$VIP)
+df_cor$Transported <- unclass(df_cor$Transported)
+df_cor$CabinPlatform <- unclass(df_cor$HomePlanet)
+df_cor$CabinSide <- unclass(df_cor$HomePlanet)
+```
+
+```{R}
+df_cor$CryoSleep[df_cor$CryoSleep==TRUE] = 1
+df_cor$CryoSleep[df_cor$CryoSleep==FALSE] = 0
+
+df_cor$VIP[df_cor$VIP==TRUE] = 1
+df_cor$VIP[df_cor$VIP==FALSE] = 0
+
+df_cor$Transported[df_cor$Transported==TRUE] = 1
+df_cor$Transported[df_cor$Transported==FALSE] = 0
+
+head(df_cor)
+```
+
+```{R}
+df_cor[] <- lapply(df_cor, function(x) as.numeric(as.character(x)))
+head(df_cor)
+```
+
+Una vez se tiene el dataset preparado, se calcula la correlación entre todas las variables, teniendo en cuenta que el análisis de Normalidad y Homocedasticidad ha salido negativo en ambos casos (ni los datos son normales ni se cumple la homocedasticidad). Por tanto, se usa el método de Spearman:
+
+```{R}
+res<- cor(df_cor, method = "spearman", use = "complete.obs")
+round(res, 2)
+```
+
+Como se puede ver en los casos anteriores, no parece haber correlación entre ninguna variable. A continuación, se presentan este coeficiente de correlación en un gráfico:
+
+```{R}
+library(corrplot)
+corrplot(res, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+```
+
+
 ### 4.3.2 Contraste de hipótesis.
 
 Se realizará un contraste de hipótesis en el que se estudiará si el gato total de dos submuestras, siendo una las personas con TRUE en Transported y las segundas las personas con FALSE.
