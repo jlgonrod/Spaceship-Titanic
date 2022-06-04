@@ -66,7 +66,7 @@ Descripción de **Train.csv**: Conjunto de datos con información de unos 8 700 
 La estructura del dataset es la siguiente:
 
 ```{r}
-df <- read.csv("~/MASTER CIENCIA DE DATOS/Tipologia y ciclo de vida de los datos/Practicas/Práctica2/Ejercicio/Repositorio/data/raw_data/train.csv",
+df <- read.csv("C:/Users/rociogm/OneDrive/Documentos/Data Science/Tipología de los Datos/PRA2/train.csv",
                colClasses=c("HomePlanet"="factor",
                             "CryoSleep"="logical",
                             "Destination"="factor",
@@ -124,7 +124,22 @@ Cabe destacar que en *HomePlanet* y en *Destination* hay campos con valores vac�
 En este apartado se tratará de mejorar la calidad de los datos presentes en base a la falta de calidad. Por límite de extensión del proyecto, nos centraremos en el tratamiento de outliers y de valores nulos.
 
 ## 3.1 Tratamiento valores nulos.
-Se remapean los campos en blanco de los campos *HomePlanet* y *Destination* por el valor *Unknown*. Con esto, no perdemos información y evitamos confundir a las personas que interpreten los resultados.
+
+Como se puede ver en el Summary del apartado anterior, en muchos de los campos del conjunto de datos hay registros vacíos que se deben tratar. El listado de campos afectados es el siguiente:
+
+1. HomePlanet
+2. Destination
+3. Age
+4. CryoSleep
+5. VIP
+6. RoomService
+7. FoodCourt
+8. ShoppingMall
+9. Spa
+10. VRDeck
+11. CabinPlatform, CabinNumber, CabinSide
+
+En los dos primeros casos, se remapean los registros en blanco de los campos *HomePlanet* y *Destination* por el valor *Unknown*. Con esto, no perdemos información y evitamos confundir a las personas que interpreten los resultados.
 
 ```{r}
 levels(df$HomePlanet) <- c("Unknown", "Earth", "Europa", "Mars")
@@ -132,34 +147,177 @@ levels(df$Destination) <- c("Unknown", "55 Cancri e", "PSO J318.5-22",
                             "TRAPPIST-1e")
 ```
 
-Se muestran la cantidad de valores nulos que tiene cada campo.
+De los otros casos, siguen existiendo el siguiente número de valores nulos.
 ```{r}
 sapply(df, function(x) sum(length(which(is.na(x)))))
 ```
-Son relativamente pocos registros en comparación con el total que constan en el dataset. Por lo que se decide con contar con estos registros para entrenar al modelo predictivo.
+
+En primer lugar, se eliminarán los registros del conjunto de datos que contengan un valor vacío en los campos *Age* y *CryoSleep*, así como en los campos *CabinPlatform*, *CabinNumber* y *CabinSide*, ya que el volumen de registros afectados es muy pequeño en comparación con el total de registros del dataset:
 
 ```{r}
-nrow(df)
-df <- na.omit(df)
-nrow(df)
+df <- subset(df, !is.na(df$Age) & !is.na(df$CryoSleep) & !is.na(df$CabinPlatform) & !is.na(df$CabinNumber) & !is.na(df$CabinSide), select = colnames(df))
 ```
+
+También eliminamos del conjunto de datos los registros en los que no se informe el campo VIP, pues los nulos de los campos numéricos se informarán a partir de este.
+
+```{r}
+df <- subset(df, !is.na(df$VIP), select = colnames(df))
+```
+
+Observemos ahora, en un dataframe en el que eliminásemos todos los registros nulos, cómo se comporta el gasto de los diferentes campos en función de si el pasajero es VIP:
+
+```{r}
+dfGr <- na.omit(df)
+
+dfGr %>%
+  group_by(dfGr$VIP) %>%
+  summarize(across(c(RoomService, FoodCourt, ShoppingMall, Spa, VRDeck),mean, na.rm = TRUE))
+```
+
+Como se puede ver en la tabla anterior, la diferencia entre el gasto de un pasajero VIP y uno no VIP es considerable. Por esta razón, se decide informar los valores nulos de campos asociados a gastos a partir de la media del gasto en el grupo VIP y no VIP.
+
+```{r}
+	roomServiceVIP = mean(df[df$VIP == TRUE,]$RoomService, na.rm = TRUE)
+	roomServiceNVIP = mean(df[df$VIP == FALSE,]$RoomService, na.rm = TRUE)
+	
+	foodCourtVIP = mean(df[df$VIP == TRUE,]$FoodCourt, na.rm = TRUE)
+	foodCourtNVIP = mean(df[df$VIP == FALSE,]$FoodCourt, na.rm = TRUE)
+	
+	shoppingMallVIP = mean(df[df$VIP == TRUE,]$ShoppingMall, na.rm = TRUE)
+	shoppingMallNVIP = mean(df[df$VIP == FALSE,]$ShoppingMall, na.rm = TRUE)
+	
+	spaVIP = mean(df[df$VIP == TRUE,]$Spa, na.rm = TRUE)
+	spaNVIP = mean(df[df$VIP == FALSE,]$Spa, na.rm = TRUE)
+	
+	vrdeckVIP = mean(df[df$VIP == TRUE,]$VRDeck, na.rm = TRUE)
+	vrdeckNVIP = mean(df[df$VIP == FALSE,]$VRDeck, na.rm = TRUE)
+```
+
+```{r}
+	df$RoomService[is.na(df$RoomService) & df$VIP == TRUE] <- roomServiceVIP
+	df$RoomService[is.na(df$RoomService) & df$VIP == FALSE] <- roomServiceNVIP
+	
+	df$FoodCourt[is.na(df$FoodCourt) & df$VIP == TRUE] <- foodCourtVIP
+	df$FoodCourt[is.na(df$FoodCourt) & df$VIP == FALSE] <- foodCourtNVIP
+	
+	df$ShoppingMall[is.na(df$ShoppingMall) & df$VIP == TRUE] <- shoppingMallVIP
+	df$ShoppingMall[is.na(df$ShoppingMall) & df$VIP == FALSE] <- shoppingMallNVIP
+	
+	df$Spa[is.na(df$Spa) & df$VIP == TRUE] <- spaVIP
+	df$Spa[is.na(df$Spa) & df$VIP == FALSE] <- spaNVIP
+	
+	df$VRDeck[is.na(df$VRDeck) & df$VIP == TRUE] <- vrdeckVIP
+	df$VRDeck[is.na(df$VRDeck) & df$VIP == FALSE] <- vrdeckNVIP
+```
+
+Después de estos tratamientos ya podemos observar cómo el Dataset aparece limpio de valores vacíos:
+
+```{r}
+sapply(df, function(x) sum(length(which(is.na(x)))))
+```
+
 
 ## 3.2 Tratamiento valores extremos.
 
+Para realizar el análisis de valores extremos, se representan los valores de los campos numéricos en un BoxPlot:
+
 ```{r}
-attach(df)
-boxplot(RoomService)
-boxplot(FoodCourt)
-boxplot(ShoppingMall)
-boxplot(Spa)
-boxplot(VRDeck)
-detach(df)
+boxplotCols <- c("RoomService","FoodCourt","ShoppingMall","Spa","VRDeck")
+boxplot(select(df, boxplotCols), col = rainbow(length(boxplotCols)))
 ```
 
-Aunque encontramos valores muy alejados de los valores centrales. No se consideraran como valores extremos. Se considerarán valores atípicos pero que son representativos de la variedad de nuestra muestra y por tanto formarán parte de los datos para entrenar al modelo. No se eliminará ningún valor extremo.
+Los valores alejados que se pueden ver en el gráfico anterior sí parecen valores atípicos dentro del conjunto de datos, pero en ningún caso se consideran en este proyecto valores extremo, ya que como se puede observar, la distribución de los datos está por encima de los cuartiles. Estos datos atípicos que se comentan, siguen siendo representativos de la variedad de la muestra, y por tanto formarán parte del conjunto de datos que se utilizará para entrenar al modelo.
+
 
 # 4 Análisis de los datos
 ## 4.1
+
+Dentro del conjunto de datos, encontramos un campo que será nuestra variable objetivo a predecir en el modelo que se quiere construir. Esta variable es *Transported*, e indica como se comentaba en el primer apartado, si un pasajero ha desaparecido después de colisionar. Por tanto, los grupos de datos a analizar son, por un lado los pasajeros transportados, y por otro, los no transportados.
+
+Para realizar un primer análisis exploratorio, comprobamos en primer lugar el volumen de datos distribuidos en nuestra variable objetivo (Transported):
+
+```{r, out.width="60%", fig.align='center'}
+ggplot(data = df) + geom_bar(mapping = aes(x = Transported, fill = Transported))
+```
+
+Como vemos, la mitad de los datos indican que el pasajero desapareció, y la otra mitad indica lo contrario.
+
+```{R}
+df %>%
+  count(Transported)
+```
+
+¿Cómo se relaciona esta variable con el resto de campos del conjunto de datos? ¿Se ve afectada por alguna de las otras variables?
+
+Para ello, crearemos un nuevo campo que mida el gasto total de cada pasajero:
+
+```{R}
+df_exp <- df
+df_exp$TotalExpenses <- df_exp$RoomService + df_exp$FoodCourt + df_exp$ShoppingMall + df_exp$Spa + df_exp$VRDeck
+df_exp <- select(df_exp, c("HomePlanet", "CryoSleep", "Destination", "Age", "VIP", "PassengerGroup", "CabinPlatform", "CabinSide", "TotalExpenses", "Transported"))
+```
+
+Si miramos la relación entre esta nueva variable y la variable objetivo, obtenemos lo siguiente:
+
+```{R}
+ggplot(data = df_exp, mapping = aes(x = TotalExpenses)) + geom_freqpoly(mapping = aes(colour = Transported), binwidth = 100)
+```
+
+Lo que indica el gráfico anterior es que la mayoría de pasajeros tienen un gasto más cercano a los valores pequeños. Pero está claro que de esta manera no se puede apreciar si existe alguna relación entre ambos campos. Por esta razón, procedemos a discretizar *TotalExpenses* según el método KN:
+
+```{R}
+library(arules)
+```
+
+```{R}
+table(discretize(df_exp$TotalExpenses, "cluster" ))
+```
+
+Si se discretiza mediante KM, la distribución que seguiría es la siguiente:
+
+```{R}
+hist(df_exp$TotalExpenses,main="Distribución de Gasto por Pasajero",xlab="Gasto", ylab="Pasajeros",col = "ivory")
+abline(v=discretize(df_exp$TotalExpenses, method="cluster", onlycuts=TRUE),col="red")
+```
+
+```{R}
+df_exp$TotalExpenses_KM <- discretize(df_exp$TotalExpenses, "cluster" )
+```
+
+Y se puede, mediante un gráfico de barras, ver la relación entre la variable anterior y la variable *Transported*.
+
+```{R}
+ggplot(data = df_exp) + geom_bar(mapping = aes(x = Transported, fill = TotalExpenses_KM), position = "fill")
+```
+
+En este caso, no parece haber ninguna relación entre ambas variables, ya que el mayor porcentaje de pasajeros transportados y no transportados estaban en el primer segmento de gasto.
+
+Sí parece haber una correlación entre las variables *CabinSide* y *Transported*:
+
+```{R}
+ggplot(data = df_exp) + geom_count(mapping = aes(x = Transported, y = CabinSide))
+```
+
+En este caso se ve claramente cómo el volumen grande de pasajeros transportados estaban en el lado S, mientras que los no transportados pertenecían al lado P.
+
+No es tan claro, sin embargo, la afectación de la plataforma de la cabina en la transportación de los pasajeros:
+
+```{R}
+df_exp %>%
+ count(Transported, CabinPlatform) %>%
+ ggplot(mapping = aes(x = Transported, y = CabinPlatform)) + geom_tile(mapping = aes(fill = n))
+```
+
+Por último, comprobamos también la relación entre la variable objetivo *Transported* y la variable *CryoSleep*, que indicaba si el pasajero estaba en animación suspendida o no:
+
+```{R}
+df_exp %>%
+ count(Transported, CryoSleep) %>%
+ ggplot(mapping = aes(x = Transported, y = CryoSleep)) + geom_tile(mapping = aes(fill = n))
+```
+
+En este caso, aunque no es igual de claro que con la variable *CabinSide*, también parece haber una correlación entre las variables.
+
 
 ## 4.2 Comprobación de la normalidad y homogeneidad de la varianza
 
