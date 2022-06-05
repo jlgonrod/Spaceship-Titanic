@@ -46,7 +46,7 @@ Descripción de **Train.csv**: Conjunto de datos con información de unos 8 700 
 | --------- | ------- | ------------- |
 | PassengerId|chr|Identificador de cada pasajero. El formato es gggg_pp (gggg hace referencia al grupo de pasajeros y pp al número dentro del grupo). Normalmente los miembros del grupo son familia.|
 | --------- | ------- | ------------- |
-|HomePlanet|factor|Platena de origen del pasajero.|
+|HomePlanet|factor|Planeta de origen del pasajero.|
 | --------- | ------- | ------------- |
 |CryoSleep| logical | Indica si el pasajero está en animación suspendida durante el viaje o no.|
 | --------- | ------- | ------------- |
@@ -58,7 +58,7 @@ Descripción de **Train.csv**: Conjunto de datos con información de unos 8 700 
 | --------- | ------- | ------------- |
 |VIP|logical|Indica si el pasajero ha pagado por un servicio VIP o no|
 | --------- | ------- | ------------- |
-|RoomService, FoodCouert, ShopingMall, Spa, VRDeck|numeric|Indica la cantidad de dinero que el pasajero ha gastado en cada uno de los servicios|
+|RoomService, FoodCourt, ShopingMall, Spa, VRDeck|numeric|Indica la cantidad de dinero que el pasajero ha gastado en cada uno de los servicios|
 | --------- | ------- | ------------- |
 |Name|chr|Indica el nombre y apellido del pasajero|
 | --------- | ------- | ------------- |
@@ -263,14 +263,22 @@ Para ello, crearemos un nuevo campo que mida el gasto total de cada pasajero:
 
 ```{R}
 df_exp <- df
-df_exp$TotalExpenses <- df_exp$RoomService + df_exp$FoodCourt + df_exp$ShoppingMall + df_exp$Spa + df_exp$VRDeck
-df_exp <- select(df_exp, c("HomePlanet", "CryoSleep", "Destination", "Age", "VIP", "PassengerGroup", "CabinPlatform", "CabinSide", "TotalExpenses", "Transported"))
+df_exp$TotalExpenses <- df_exp$RoomService +
+  df_exp$FoodCourt +
+  df_exp$ShoppingMall +
+  df_exp$Spa +
+  df_exp$VRDeck
+df_exp <- select(df_exp,
+                 c("HomePlanet", "CryoSleep", "Destination", "Age", "VIP", 
+                   "PassengerGroup", "CabinPlatform", "CabinSide", 
+                   "TotalExpenses", "Transported"))
 ```
 
 Si miramos la relación entre esta nueva variable y la variable objetivo, obtenemos lo siguiente:
 
 ```{R}
-ggplot(data = df_exp, mapping = aes(x = TotalExpenses)) + geom_freqpoly(mapping = aes(colour = Transported), binwidth = 100)
+ggplot(data = df_exp, mapping = aes(x = TotalExpenses)) + 
+  geom_freqpoly(mapping = aes(colour = Transported), binwidth = 100)
 ```
 
 Lo que indica el gráfico anterior es que la mayoría de pasajeros tienen un gasto más cercano a los valores pequeños. Pero está claro que de esta manera no se puede apreciar si existe alguna relación entre ambos campos. Por esta razón, procedemos a discretizar *TotalExpenses* según el método KN:
@@ -282,8 +290,10 @@ table(discretize(df_exp$TotalExpenses, "cluster" ))
 Si se discretiza mediante KM, la distribución que seguiría es la siguiente:
 
 ```{R}
-hist(df_exp$TotalExpenses,main="Distribución de Gasto por Pasajero",xlab="Gasto", ylab="Pasajeros",col = "ivory")
-abline(v=discretize(df_exp$TotalExpenses, method="cluster", onlycuts=TRUE),col="red")
+hist(df_exp$TotalExpenses,main="Distribución de Gasto por Pasajero",
+     xlab="Gasto", ylab="Pasajeros",col = "ivory")
+abline(v=discretize(df_exp$TotalExpenses, method="cluster", 
+                    onlycuts=TRUE),col="red")
 ```
 
 ```{R}
@@ -293,7 +303,9 @@ df_exp$TotalExpenses_KM <- discretize(df_exp$TotalExpenses, "cluster" )
 Y se puede, mediante un gráfico de barras, ver la relación entre la variable anterior y la variable *Transported*.
 
 ```{R}
-ggplot(data = df_exp) + geom_bar(mapping = aes(x = Transported, fill = TotalExpenses_KM), position = "fill")
+ggplot(data = df_exp) + 
+  geom_bar(mapping = aes(x = Transported, fill = TotalExpenses_KM), 
+           position = "fill")
 ```
 
 En este caso, no parece haber ninguna relación entre ambas variables, ya que el mayor porcentaje de pasajeros transportados y no transportados estaban en el primer segmento de gasto.
@@ -301,7 +313,8 @@ En este caso, no parece haber ninguna relación entre ambas variables, ya que el
 Sí parece haber una correlación entre las variables *CabinSide* y *Transported*:
 
 ```{R}
-ggplot(data = df_exp) + geom_count(mapping = aes(x = Transported, y = CabinSide))
+ggplot(data = df_exp) +
+  geom_count(mapping = aes(x = Transported, y = CabinSide))
 ```
 
 En este caso se ve claramente cómo el volumen grande de pasajeros transportados estaban en el lado S, mientras que los no transportados pertenecían al lado P.
@@ -311,7 +324,8 @@ No es tan claro, sin embargo, la afectación de la plataforma de la cabina en la
 ```{R}
 df_exp %>%
  count(Transported, CabinPlatform) %>%
- ggplot(mapping = aes(x = Transported, y = CabinPlatform)) + geom_tile(mapping = aes(fill = n))
+ ggplot(mapping = aes(x = Transported, y = CabinPlatform)) +
+  geom_tile(mapping = aes(fill = n))
 ```
 
 Por último, comprobamos también la relación entre la variable objetivo *Transported* y la variable *CryoSleep*, que indicaba si el pasajero estaba en animación suspendida o no:
@@ -319,7 +333,8 @@ Por último, comprobamos también la relación entre la variable objetivo *Trans
 ```{R}
 df_exp %>%
  count(Transported, CryoSleep) %>%
- ggplot(mapping = aes(x = Transported, y = CryoSleep)) + geom_tile(mapping = aes(fill = n))
+ ggplot(mapping = aes(x = Transported, y = CryoSleep)) + 
+  geom_tile(mapping = aes(fill = n))
 ```
 
 En este caso, aunque no es igual de claro que con la variable *CabinSide*, también parece haber una correlación entre las variables.
@@ -453,7 +468,7 @@ fligner.test(Age ~ Transported, data=df)
 boxplot(Age~Transported, data = df, 
         main="Comprobación de homocedasticidad para Age")
 ```
-Aunque gráficamente parece que la varianza es homogénea para los dos grupos de la variable *Age* definidos por *Transported*, el test de *Fligner-Killeen* apunta a que no son iguales. El p-valor apportado es inferior a 0.05 por lo que se rechaza la hipótesis nula de igualdad de varianzas.
+Aunque gráficamente parece que la varianza es homogénea para los dos grupos de la variable *Age* definidos por *Transported*, el test de *Fligner-Killeen* apunta a que no son iguales. El p-valor apartado es inferior a 0.05 por lo que se rechaza la hipótesis nula de igualdad de varianzas.
 
 Por lo que se afirma que **ninguno de los campos numéricos sigue una distribución normal, ni presentan homocedasticidad** para los dos grupos definidos por la variable *Transported*. Se observa en cuanto a la distribución normal. Que en todas las variables (salvo en *Age*) el grupo asignado como "TRUE" tiene muchos más valores en 0 (lo que indica que no han gastado nada en esos servicios) que el asignado como "FALSE."
 
@@ -562,17 +577,18 @@ df_validation <- df_raw[-Index,]
 
 Aunque no se incluye en la práctica por motivos de extensión. Se han realizado análisis previos y se ha determinado que hay variables que empeoran el modelo, por lo que estas se eliminan en el entrenamiento y en la validación.
 ```{r}
-df1 <- select(df, -c(PassengerId, PassengerGroup, HomePlanet, Destination,VIP, PassengerNumInGroup, CabinPlatform, Age, amountSpent))
+df1 <- select(df, -c(PassengerId, PassengerGroup, HomePlanet, Destination,VIP,
+                     PassengerNumInGroup, CabinPlatform, Age, amountSpent))
 ```
 
-Se entrena el modelo con el dataset previamente creado. Se presupone que lasvariables no son bariables de confusión y no presentan interacción entre ellas.
+Se entrena el modelo con el dataset previamente creado. Se presupone que las variables no son variables de confusión y no presentan interacción entre ellas.
 
 ```{r}
 model_log <- glm(Transported ~ ., data = df1, family = binomial(link='logit'))
 summary(model_log)
 ```
 
-A continuación se evalúa el mismo. Para ello se predicen los valores del conjunto *df_validation* y se comparan con los valres reales del mismo.
+A continuación se evalúa el mismo. Para ello se predicen los valores del conjunto *df_validation* y se comparan con los valores reales del mismo.
 
 ```{r}
 fitted.results <- predict(model_log, 
@@ -653,5 +669,3 @@ El uso del modelo, así como los datos recabados en los otros 3 paramétricos y 
 # 7 Código
 
 El código se ha ido desarrollando a lo largo de este material en formato PDF. Es código Desarrollado en lenguaje R, Aparte, se proporcionará un script de R en el que solamente se incluye el código. 
-
-**HACER SCRIP DE R SOLO CON CÓDIGO ########################################################################################################################################################################################################################################################################################################################################################################################################################################################**
