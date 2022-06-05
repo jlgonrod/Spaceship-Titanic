@@ -608,9 +608,9 @@ confusionMatrix(df_validation_info$Transported, df_validation_info$Prediction)
 ```
 La clase positiva se categoriza como FALSE (no desaparecido).
 
-Se observa una buena predicción de las clases. Con una exactitud del 80,38%. La tasa de positivos que se han asignado como positivos es del 81,27%. mientras que los negativos identificado como auténticos negativos es del 79,55%. De los verdaderos.
+Se observa una buena predicción de las clases. Con una exactitud del 79,17%. La tasa de positivos que se han asignado como positivos es del 79,45%. mientras que los negativos identificado como auténticos negativos es del 78,90%. De los verdaderos.
 
-La precisión, es decir, los datos clasificados como positivos y que realmente lo son es del  78,73%.
+La precisión, es decir, los datos clasificados como positivos y que realmente lo son es del  78,31%.
 
 ```{r, out.width="70%",  fig.align='center'}
 pr <- prediction(fitted.results, df_validation$Transported)
@@ -624,6 +624,34 @@ auc <- auc@y.values[[1]]
 auc
 ```
 
-Vemos como la curva ROC nos da un valor próxima a la esquina superior derecha y un área del 0.85, muy próximo a 1.
+Vemos como la curva ROC nos da un valor próxima a la esquina superior derecha y un área del 0.86, próximo a 1. Lo que indica que el modelo predice bien los datos.
 
 Se observa que el modelo es bueno prediciendo si los pasajeros han desaparecido o no.
+
+# 5 Tablas y gráficas
+
+Se han ido desarrollando y comentado las tablas y gráficas a lo largo de toda la memoria de la práctica.
+
+# 6 Resolución del problema y conclusiones.
+
+El objetivo que se buscaba lograr con el proyecto es el de obtener más información acerca de los datos de los pasajeros del crucero Intergaláctico denominado Titanic. Hola además, se pretendía que a partir del dataset dado se pudiera entrenar un modelo de regresión logarítmica supervisado. Este modelo tenía por objeto y predecir si los pasajeros habían sido transportados o no para que la tripulación encargada del rescate pudiera centrar sus esfuerzos en las personas que han sido transportadas.
+
+Se puede observar que hay algunos campos que presentan valores nulos y se analizan los posibles outliers, lo cual empeorará la calidad de los análisis. Por lo que para ello se lleva a cabo al tareas de limpieza de datos.
+
+Se observa que del conjunto de datos utilizados para el entrenamiento hay aproximadamente la misma que han sido transportados y que no han sido transportados. También se observa que la mayoría de los pasajeros tiene un gasto con valores cercanos a cero o incluso nulos. Se detecta una correlación entre las variables *CabinSide* y *Transported*, una gran cantidad de pasajeros que estaban en el lado *S* han sido transportados mientras los que pertenecían el lado *P* no lo han sido.  Se observa también cierta tendencia entre las variables *CabinSide* y *CryoSleep* aunque no es tan claro como en el caso anterior.
+
+Se observa cómo las variables numéricas no siguen una distribución normal y además no presentan homocedasticidad cuando comparamos los Grupos definidos por la variable *Transported*. Es por lo que, para realizar el siguiente contraste de hipótesis se han tenido que utilizar test no paramétricos. 
+
+En los relativos a las propias estadísticas se obtienen las siguientes conclusiones.
+**CONCLUISIONES ANÁLISIS CORRELACIONES POR ROCIO ########################################################################################################################################################################################################################################################################################################################################################################################################################################################**
+
+En la prueba estadística de contrastes hipótesis se pretende medir si es diferente en la media del monto total gastado por las personas que han sido transportadas con la de El grupo de personas no transportadas. Para ello se lleva a cabo un contraste de hipótesis en el que la hipótesis nula será la igualdad de la media y la hipótesis alternativas, la no igualdad de estas. Se utilizará el contraste no paramétrico de test de sumas de rango de Wilcoxon. Esta arroja un P valor inferior al nivel de significancia de 0,05, por lo que se puede afirmar que la Cantidad total de dinero gastado por el Grupo de las personas que han sido transportadas y de las que no, no presentan la misma media.
+Por otro lado, se realiza un modelo de regresión logarítmica que, en base las variables de interés. Ayuda a predecir si la persona ha sido transportada o no. Tras entrenar el modelo se Comprueba su bondad con el conjunto de datos reservados para el test y que no ha sido utilizado durante la fase de entrenamiento y se obtiene una precisión del 79,17%. Así como unos valores de sensibilidad del 79,45%, de especificidad del 78,90% y de precisión del 78,31%. El área que deja debajo la curva ROC es de 0,8619. Por lo que podemos concluir que el modelo es útil y ayuda a predecir los casos en los que se ha producido transporte.
+
+El uso del modelo, así como los datos recabados en los otros 3 paramétricos y estudios Del conjunto de datos nos permiten responder a las preguntas de investigación. Lo que ayudará a centrar los esfuerzos y maximizar el número de vidas salvadas.
+
+# 7 Código
+
+El código se ha ido desarrollando a lo largo de este material en formato PDF. Es código Desarrollado en lenguaje R, Aparte, se proporcionará un script de R en el que solamente se incluye el código. 
+
+**HACER SCRIP DE R SOLO CON CÓDIGO ########################################################################################################################################################################################################################################################################################################################################################################################################################################################**
