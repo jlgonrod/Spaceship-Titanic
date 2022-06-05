@@ -20,7 +20,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message = FALSE}
 # Package names
 packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse",
-              "caret","ROCR", "knitr", 'nortest', "bestNormalize")
+              "caret","ROCR", "knitr", 'nortest', "bestNormalize","corrplot",
+              "arules")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -66,7 +67,7 @@ Descripción de **Train.csv**: Conjunto de datos con información de unos 8 700 
 La estructura del dataset es la siguiente:
 
 ```{r}
-df <- read.csv("C:/Users/rociogm/OneDrive/Documentos/Data Science/Tipología de los Datos/PRA2/train.csv",
+df <- read.csv("~/MASTER CIENCIA DE DATOS/Tipologia y ciclo de vida de los datos/Practicas/Práctica2/Ejercicio/Repositorio/data/raw_data/train.csv",
                colClasses=c("HomePlanet"="factor",
                             "CryoSleep"="logical",
                             "Destination"="factor",
@@ -155,7 +156,13 @@ sapply(df, function(x) sum(length(which(is.na(x)))))
 En primer lugar, se eliminarán los registros del conjunto de datos que contengan un valor vacío en los campos *Age* y *CryoSleep*, así como en los campos *CabinPlatform*, *CabinNumber* y *CabinSide*, ya que el volumen de registros afectados es muy pequeño en comparación con el total de registros del dataset:
 
 ```{r}
-df <- subset(df, !is.na(df$Age) & !is.na(df$CryoSleep) & !is.na(df$CabinPlatform) & !is.na(df$CabinNumber) & !is.na(df$CabinSide), select = colnames(df))
+df <- subset(df, !is.na(df$Age) & 
+               !is.na(df$CryoSleep) &
+               !is.na(df$CabinPlatform) & 
+               !is.na(df$CabinNumber) & 
+               !is.na(df$CabinSide), 
+             
+             select = colnames(df))
 ```
 
 También eliminamos del conjunto de datos los registros en los que no se informe el campo VIP, pues los nulos de los campos numéricos se informarán a partir de este.
@@ -171,7 +178,9 @@ dfGr <- na.omit(df)
 
 dfGr %>%
   group_by(dfGr$VIP) %>%
-  summarize(across(c(RoomService, FoodCourt, ShoppingMall, Spa, VRDeck),mean, na.rm = TRUE))
+  summarize(across(c(RoomService, FoodCourt, ShoppingMall, Spa, VRDeck),
+                   mean,
+                   na.rm = TRUE))
 ```
 
 Como se puede ver en la tabla anterior, la diferencia entre el gasto de un pasajero VIP y uno no VIP es considerable. Por esta razón, se decide informar los valores nulos de campos asociados a gastos a partir de la media del gasto en el grupo VIP y no VIP.
@@ -230,7 +239,8 @@ Los valores alejados que se pueden ver en el gráfico anterior sí parecen valor
 
 
 # 4 Análisis de los datos
-## 4.1
+
+## 4.1 Selección de los grupos de datos
 
 Dentro del conjunto de datos, encontramos un campo que será nuestra variable objetivo a predecir en el modelo que se quiere construir. Esta variable es *Transported*, e indica como se comentaba en el primer apartado, si un pasajero ha desaparecido después de colisionar. Por tanto, los grupos de datos a analizar son, por un lado los pasajeros transportados, y por otro, los no transportados.
 
@@ -264,10 +274,6 @@ ggplot(data = df_exp, mapping = aes(x = TotalExpenses)) + geom_freqpoly(mapping 
 ```
 
 Lo que indica el gráfico anterior es que la mayoría de pasajeros tienen un gasto más cercano a los valores pequeños. Pero está claro que de esta manera no se puede apreciar si existe alguna relación entre ambos campos. Por esta razón, procedemos a discretizar *TotalExpenses* según el método KN:
-
-```{R}
-library(arules)
-```
 
 ```{R}
 table(discretize(df_exp$TotalExpenses, "cluster" ))
@@ -449,16 +455,16 @@ boxplot(Age~Transported, data = df,
 ```
 Aunque gráficamente parece que la varianza es homogénea para los dos grupos de la variable *Age* definidos por *Transported*, el test de *Fligner-Killeen* apunta a que no son iguales. El p-valor apportado es inferior a 0.05 por lo que se rechaza la hipótesis nula de igualdad de varianzas.
 
-Por lo que se afirma que **ninguno de los campos numéricos sigue una distribución normal, ni presentan homocedasticidad** para los dos grupos definidos por la variable *Transported*. Se observa en cuantro a la distribución normal. Que en todas las variables (salvo en *Age*) el grupo asignado como "TRUE" tiene muchos más valores en 0 (lo que indica que no han gastado nada en esos servicios) que el asignado como "FALSE."
+Por lo que se afirma que **ninguno de los campos numéricos sigue una distribución normal, ni presentan homocedasticidad** para los dos grupos definidos por la variable *Transported*. Se observa en cuanto a la distribución normal. Que en todas las variables (salvo en *Age*) el grupo asignado como "TRUE" tiene muchos más valores en 0 (lo que indica que no han gastado nada en esos servicios) que el asignado como "FALSE."
 
-## 4.3
+## 4.3 Aplicación de pruebas estadísticas
 
 ### 4.3.1 Análisis de Correlaciones
 
 Para realizar el análisis de correlaciones, en primer lugar se creará un conjunto de datos nuevo a partir del anterior, que contenga las mismas variables pero transformadas todas a numéricas:
 
 ```{R}
-df_cor <- df[,2:18]
+df_cor <- df[,2:17]
 df_cor <- df_cor[,-12:-13]
 df_cor$HomePlanet <- unclass(df_cor$HomePlanet)
 df_cor$Destination <- unclass(df_cor$Destination)
@@ -496,13 +502,13 @@ round(res, 2)
 Como se puede ver en los casos anteriores, no parece haber correlación entre ninguna variable. A continuación, se presentan este coeficiente de correlación en un gráfico:
 
 ```{R}
-library(corrplot)
+
 corrplot(res, type = "upper", order = "hclust", 
          tl.col = "black", tl.srt = 45)
 ```
 
 
-### 4.3.2 Contraste de hipótesis.
+### 4.3.2 Contraste de hipótesis
 
 Se realizará un contraste de hipótesis en el que se estudiará si el gato total de dos submuestras, siendo una las personas con TRUE en Transported y las segundas las personas con FALSE.
 

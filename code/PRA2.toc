@@ -1,0 +1,14 @@
+\contentsline {section}{1 Contexto}{2}{section*.2}%
+\contentsline {subsection}{1.1 Descripción del Dataset}{2}{section*.3}%
+\contentsline {subsection}{1.2 ¿Por qué es importante y qué pregunta/problema pretende responder?}{3}{section*.4}%
+\contentsline {section}{2 Integración y selección de los datos de interes.}{3}{section*.5}%
+\contentsline {section}{3 Limpieza de los Datos.}{5}{section*.6}%
+\contentsline {subsection}{3.1 Tratamiento valores nulos.}{5}{section*.7}%
+\contentsline {subsection}{3.2 Tratamiento valores extremos.}{7}{section*.8}%
+\contentsline {section}{4 Análisis de los datos}{8}{section*.9}%
+\contentsline {subsection}{4.1 Selección de los grupos de datos}{8}{section*.10}%
+\contentsline {subsection}{4.2 Comprobación de la normalidad y homogeneidad de la varianza}{15}{section*.11}%
+\contentsline {subsection}{4.3 Aplicación de pruebas estadísticas}{24}{section*.12}%
+\contentsline {subsubsection}{4.3.1 Análisis de Correlaciones}{24}{section*.13}%
+\contentsline {subsubsection}{4.3.2 Contraste de hipótesis}{26}{section*.14}%
+\contentsline {subsubsection}{4.3.3 Modelo de regresión logarítmica}{27}{section*.15}%
