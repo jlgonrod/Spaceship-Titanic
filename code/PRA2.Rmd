@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Package names
 packages <- c("tidyr", "dplyr","ggplot2", "keras","reshape2","tidyverse",
               "caret","ROCR", "knitr", 'nortest', "bestNormalize","corrplot",
-              "arules")
+              "arules", "kableExtra")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -671,6 +671,22 @@ El uso del modelo, así como los datos recabados en los otros 3 paramétricos y 
 # 7 Código
 
 El código se ha ido desarrollando a lo largo de este material en formato PDF. Es código Desarrollado en lenguaje R, Aparte, se proporcionará un script de R en el que solamente se incluye el código.
+\
+\
+\
+```{r, echo=FALSE}
+apartado <- c('Apartado 1', 'Apartado 2', 'Apartado 3', 'Apartado 4', 'Apartado 5', 'Apartado 6', 'Apartado 7')
+contribuciones <- c('Juan Luis González Rodríguez', 'Rocío González Martínez')
+
+a <-data.frame(rep(apartado, 2),
+               rep(contribuciones, 7))
+colnames(a) <- c('Apartado', 'Contribución')
+
+arrange(a, Apartado) %>%
+  kable(caption = 'Tabla de contribuciones', booktabs = TRUE) %>%
+  collapse_rows(column = 1)%>%
+  kable_styling(latex_options = "HOLD_position")
+```
 \
 \
 \
