@@ -10,12 +10,9 @@ En él, se realiza el análisis y preparación del conjunto de datos Spaceship-T
 Este proyecto ha sido realizado por Juan Luis González Rodríguez y Rocío González Martínez, alumnos del Máster de Ciencia de Datos de la UOC.
 
 ## Estructura del proyecto
-PDF/: Carpeta que contiene el fichero en pdf con la memoria de la práctica.
-results/: directorio para guardar los CSV resultantes de las sucesivas búsquedas.
-sample_dataframe/: directorio que contiene el dataset de ejemplo generado para el término de búsqueda del ibuprofeno.
-src/cima/searcher.py: configura la clase CimaWebConfigurator con los parámetros y funciones de la web del medicamento.
-src/cima/crawler.py: configuración de la clase Crawler, que representa el "rastreador" del medicamento por la Web de Cima.
-src/cima/medicament.py: configuración de las clases WebMedicament y Medicament. La primera hace referencia a la página web en la que se describe el medicamento y la segunda, a toda la información del medicamento en sí.
-src/file_csv.py: fichero que guarda el código para crear el CSV con la información recolectada en las clases anteriores.
-./main.py: fichero principal del programa. En este punto se debe definir el medicamento a buscar y se obtendrá el CSV buscado.
-test/test.py: fichero de pruebas y ejemplos de las clases y funciones anteriores.
+* code/: Carpeta que contiene los ficheros con el código creado para el análisis y preparación del dataset.
+* PRA2.rmd: código fuente más comentarios, elaborado con R Markdown.
+* PRA2.R: código fuente elaborado con R.
+* data/clean_data/df_clean.csv: conjunto de datos analizado y extraído antes de aplicar el modelo de regresión logarítmica.
+* data/raw_data/train.csv: conjunto de datos *train*, el original descargado de Kaggle para iniciar el análisis.
+* documentation/: carpeta que contiene el fichero report.pdf con la memoria de la práctica y el fichero report_and_code.pdf con la memoria completa (memoria y código).
